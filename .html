@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Memory Game - Combo Mode</title>
+  <style>
+    body {
+      font-family: sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      background: url('https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=1470&q=80') no-repeat center center fixed;
+      background-size: cover;
+    }
+    h1, #timer, #score, #stars {
+      margin-top: 10px;
+      color: white;
+      text-shadow: 2px 2px 4px rgba(0,0,0,0.6);
+    }
+    #game {
+      display: grid;
+      gap: 10px;
+      margin: 20px;
+      grid-template-columns: repeat(2, 1fr);
+    }
+    @media (min-width: 768px) {
+      #game {
+        grid-template-columns: repeat(5, 1fr);
+      }
+    }
+    .card {
+      width: 100%;
+      aspect-ratio: 1 / 1;
+      background: #999;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 50px;
+      cursor: pointer;
+      color: transparent;
+      border-radius: 12px;
+      box-shadow: 2px 2px 8px rgba(0,0,0,0.3);
+      transition: transform 0.4s;
+      animation: fadeIn 0.5s ease-in;
+    }
+    .card.revealed, .card.matched {
+      background: #4CAF50;
+      color: white;
+      cursor: default;
+      transform: rotateY(180deg);
+    }
+    #nextBtn, #restartBtn {
+      margin: 10px;
+      padding: 10px 20px;
+      font-size: 16px;
+    }
+    #userInput {
+      margin-top: 15px;
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: scale(0.8); }
+      to { opacity: 1; transform: scale(1); }
+    }
+  </style>
+</head>
+<body>
+  <h1>Memory Game - Level <span id="level">1</span></h1>
+  <div id="timer">Time: <span id="time">60</span>s</div>
+  <div id="score">Score: <span id="scoreValue">0</span></div>
+  <div id="stars">⭐️⭐️⭐️</div>
+  <div id="userInput">
+    <input type="text" id="username" placeholder="Enter your name">
+    <button onclick="saveUserName()">Start</button>
+  </div>
+  <div id="game"></div>
+  <button id="nextBtn" style="display:none">Next Level</button>
+  <button id="restartBtn" style="display:none">Restart</button>
+
+  <script>
+    const emojis = [...'🍎🍌🍇🍉🍓🍒🥝🍍🥥🥭🫐🍑🍈🍋🍊🥕🌽🍆🥦🍄🧄🧅🥔🥬🌶🍞🧀🥚🍗🍖🍔🍟🍕🌭🥪🌮🌯🥗🍲🍛🍣🍤🍙🍚🍜🍝🍠🥮🍢🍡🍧🍨🍦🥧🍰🎂🧁🍮🍭🍬🍫🍿'];
+    let level = 1;
+    let score = 0;
+    const levelCardCounts = [10, 20, 26, 32, 38, 44];
+    const game = document.getElementById('game');
+    const levelText = document.getElementById('level');
+    const nextBtn = document.getElementById('nextBtn');
+    const restartBtn = document.getElementById('restartBtn');
+    const timer = document.getElementById('time');
+    const scoreValue = document.getElementById('scoreValue');
+    const stars = document.getElementById('stars');
+
+    let firstCard, secondCard, lockBoard = false, matchedCount = 0;
+    let countdown, timeLeft;
+
+    function saveUserName() {
+      const name = document.getElementById('username').value;
+      if (name.trim()) {
+        localStorage.setItem('memoryGameUser', name);
+        document.getElementById('userInput').style.display = 'none';
+        setupBoard();
+      }
+    }
+
+    function updateStars() {
+      if (timeLeft > 40) stars.textContent = '⭐️⭐️⭐️';
+      else if (timeLeft > 20) stars.textContent = '⭐️⭐️';
+      else stars.textContent = '⭐️';
+    }
+
+    function startTimer() {
+      timeLeft = 60;
+      timer.textContent = timeLeft;
+      clearInterval(countdown);
+      countdown = setInterval(() => {
+        timeLeft--;
+        timer.textContent = timeLeft;
+        updateStars();
+        if (timeLeft <= 0) {
+          clearInterval(countdown);
+          game.innerHTML = '';
+          alert("Time's up!\nYour score: " + score);
+          restartBtn.style.display = 'inline-block';
+        }
+      }, 1000);
+    }
+
+    function shuffle(array) {
+      for (let i = array.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [array[i], array[j]] = [array[j], array[i]];
+      }
+      return array;
+    }
+
+    function setupBoard() {
+      game.innerHTML = '';
+      const count = levelCardCounts[level - 1];
+      const pairs = count / 2;
+      const chosen = shuffle([...emojis]).slice(0, pairs);
+      const cards = shuffle([...chosen, ...chosen]);
+
+      cards.forEach(symbol => {
+        const card = document.createElement('div');
+        card.classList.add('card');
+        card.textContent = symbol;
+        card.addEventListener('click', () => revealCard(card));
+        game.appendChild(card);
+      });
+
+      matchedCount = 0;
+      nextBtn.style.display = 'none';
+      startTimer();
+    }
+
+    function revealCard(card) {
+      if (lockBoard || card.classList.contains('revealed') || card.classList.contains('matched')) return;
+      card.classList.add('revealed');
+
+      if (!firstCard) {
+        firstCard = card;
+      } else {
+        secondCard = card;
+        lockBoard = true;
+
+        if (firstCard.textContent === secondCard.textContent) {
+          firstCard.classList.add('matched');
+          secondCard.classList.add('matched');
+          matchedCount += 2;
+          score += 10;
+          scoreValue.textContent = score;
+
+          if (matchedCount === levelCardCounts[level - 1]) {
+            clearInterval(countdown);
+            if (level === levelCardCounts.length) {
+              alert('You completed all levels!');
+              restartBtn.style.display = 'inline-block';
+            } else {
+              nextBtn.style.display = 'inline-block';
+            }
+          }
+          reset();
+        } else {
+          setTimeout(() => {
+            firstCard.classList.remove('revealed');
+            secondCard.classList.remove('revealed');
+            reset();
+          }, 800);
+        }
+      }
+    }
+
+    function reset() {
+      [firstCard, secondCard, lockBoard] = [null, null, false];
+    }
+
+    nextBtn.onclick = () => {
+      level++;
+      levelText.textContent = level;
+      setupBoard();
+    }
+
+    restartBtn.onclick = () => {
+      level = 1;
+      score = 0;
+      scoreValue.textContent = score;
+      levelText.textContent = level;
+      stars.textContent = '⭐️⭐️⭐️';
+      setupBoard();
+      restartBtn.style.display = 'none';
+    }
+  </script>
+</body>
+</html>
